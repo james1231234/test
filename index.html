@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>CareTrail • iPhone Safari storage test</title>
+<style>
+:root{font:17px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#102c29;background:#f7fcfa}*{box-sizing:border-box}body{margin:0;padding:16px 16px 60px}main{max-width:680px;margin:auto}h1{font-size:1.9rem;line-height:1.2}h2{font-size:1.3rem}section{padding:18px;margin:16px 0;border:1px solid #c3dbd1;background:white;border-radius:15px}p{margin:.5em 0 1em}.notice{background:#fff9e8;border-left:5px solid #946000;padding:12px}button,input[type=file]{font:inherit;max-width:100%}button{display:block;width:100%;padding:16px 12px;min-height:50px;background:#195c50;color:white;border:0;border-radius:10px;font-weight:650;margin:12px 0;cursor:pointer}button:disabled{background:#7e9690}input[type=file]{width:100%;padding:12px;border:1px solid #708c83;border-radius:10px;background:#fff}output{display:block;white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 ui-monospace,Menlo,monospace;padding:12px;border-radius:10px;background:#edf5f1;margin:12px 0;min-height:52px}.good{color:#065f3b}.bad{color:#b42318}.status{font-weight:700}img{display:block;max-width:100%;max-height:360px;object-fit:contain;border:1px solid #a8bbb3;border-radius:8px;background:white;margin:12px auto}small{color:#4b625a}code{overflow-wrap:anywhere}.hidden{display:none}li{margin:.5em 0}
+</style>
+</head>
+<body>
+<main>
+<h1>CareTrail iPhone Safari test</h1>
+<p>This is a <strong>separate test page</strong> that imports Role 2's real <code>storage.js</code>. It is not the integrated app.</p>
+<div class="notice"><strong>Use fictional data only.</strong> Write “FICTIONAL LABEL — NOT A MEDICATION” on paper and photograph the paper with your iPhone camera. Do not photograph a real prescription, bottle, or person. Do not use this test if the GitHub Pages origin already holds CareTrail records. Browser storage is shared by origin, not URL path. Your photo is saved to IndexedDB on this iPhone; this test page contains no upload code.</div>
+<section>
+  <h2>Environment</h2>
+  <output id="environment" aria-live="polite">Checking...</output>
+</section>
+<section>
+  <h2>A — Save profile and actual camera photo</h2>
+  <p>In normal Safari (not Private Browsing), tap the chooser and select <strong>Take Photo</strong>. Photograph the fictional paper label. Look at the preview before saving.</p>
+  <label for="camera"><strong>Choose or take test photo</strong></label>
+  <input type="file" id="camera" accept="image/*" capture="environment">
+  <div id="selected"></div>
+  <img id="preview" alt="Preview of the selected fictional test photo" class="hidden">
+  <button id="save" disabled>Save fictional profile + this photo</button>
+  <output id="save-result" aria-live="polite">Not started. This step refuses to overwrite existing CareTrail data on this test origin.</output>
+</section>
+<section>
+  <h2>B — Verify after a full Safari reopen</h2>
+  <p>After A passes, close <strong>all Safari windows/tabs for this test</strong>, quit Safari via the app switcher, then reopen normal Safari to this <em>exact same HTTPS address</em>. Do not open via a Home Screen icon for this Safari test.</p>
+  <button id="verify">Verify persisted profile, medication and exact image bytes</button>
+  <output id="verify-result" aria-live="polite">Not started.</output>
+  <div id="persisted-photo"></div>
+</section>
+<section>
+  <h2>What a pass means</h2>
+  <p>The profile matches every saved field, the unnamed medication has the same ID, display number, start date and photo ID, the retrieved photo has the same SHA-256 digest, and the retained image renders so you can check that the label remains readable.</p>
+  <p><small>If the photo fails to save on iPhone (for example, because a selected image format cannot be decoded), record the exact error. Do not claim iPhone persistence passed. The app must continue to offer “Add photo later.”</small></p>
+</section>
+</main>
+<script type="module">
+import {getProfile,saveProfile,listEvents,listMedications,addMedication,savePhoto,getPhotoBlob} from './storage.js';
+const $=id=>document.getElementById(id);
+const key='caretrail.iphoneTest.meta.v1';
+const p={name:'Fictional Safari Test',dateOfBirth:'1999-04-15',sex:'Unknown',bloodGroup:'Unknown',allergies:'Not entered',additionalInfo:'FICTIONAL TEST DATA ONLY'};
+let selectedFile=null, originalUrl=null, savedUrl=null;
+const log=(target,ok,msg)=>{target.className=ok?'good':'bad';target.textContent=(ok?'PASS: ':'FAIL: ')+msg};
+function localDate(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function stringifyError(e){return (e?.code?e.code+': ':'')+(e?.message||String(e))}
+async function digest(blob){const bytes=await blob.arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('')}
+function photoPreview(target, blob){if(savedUrl)URL.revokeObjectURL(savedUrl);savedUrl=URL.createObjectURL(blob);const img=document.createElement('img');img.alt='Saved fictional camera image retrieved from IndexedDB';img.src=savedUrl;img.onload=()=>{};target.replaceChildren(img)}
+const env=[`Origin: ${location.origin}`,`HTTPS: ${location.protocol==='https:'?'YES':'NO — use published HTTPS URL'}`,`Secure context: ${isSecureContext}`,`Browser storage: ${!!window.localStorage}`,`IndexedDB API: ${!!window.indexedDB}`,`Camera photo input available: yes (device chooses picker interface)`].join('\n');$('environment').textContent=env;
+$('camera').addEventListener('change',()=>{selectedFile=$('camera').files?.[0]||null;$('save').disabled=!selectedFile;if(originalUrl)URL.revokeObjectURL(originalUrl);if(selectedFile){originalUrl=URL.createObjectURL(selectedFile);$('preview').src=originalUrl;$('preview').classList.remove('hidden');$('selected').textContent=`Selected ${selectedFile.name||'(camera image)'}, ${selectedFile.type||'(unknown MIME type)'}, ${selectedFile.size} bytes. Confirm you used Take Photo and the fictional paper label is readable.`;}else{$('preview').classList.add('hidden');$('selected').textContent='No photo selected.'}});
+$('save').addEventListener('click',async()=>{$('save').disabled=true;try{
+ if(location.protocol!=='https:'||!isSecureContext)throw Error('Publish this page to HTTPS before iPhone testing.');
+ if(!selectedFile)throw Error('First take a fictional camera photograph.');
+ if(localStorage.getItem('caretrail.records.v1')!==null||localStorage.getItem(key)!==null)throw Error('This GitHub Pages origin already has records; do NOT overwrite or clear them. Stop and ask Role 4 for an isolated test origin.');
+ if((await listEvents()).length||(await listMedications()).length||Object.values(await getProfile()).some(Boolean))throw Error('Storage not empty. Stop; do not overwrite existing data.');
+ const startedAt=localDate();
+ await saveProfile(p);
+ const photoId=await savePhoto(selectedFile);
+ const blob=await getPhotoBlob(photoId);
+ if(!(blob instanceof Blob)||!blob.size)throw Error('Saved photo could not be retrieved as a Blob.');
+ const sha=await digest(blob);
+ const med=await addMedication({name:'',doseText:'',startedAt,status:'ongoing',photoId});
+ const meta={profile:p,medicationId:med.id,displayNumber:med.displayNumber,startedAt,photoId,sha,size:blob.size,type:blob.type,originalType:selectedFile.type,originalName:selectedFile.name||'(camera photo)'};
+ localStorage.setItem(key,JSON.stringify(meta));
+ photoPreview($('persisted-photo'),blob);
+ log($('save-result'),true,`Fictional profile and unnamed medication saved. Photo ID: ${photoId}; stored photo: ${blob.type}, ${blob.size} bytes. SHA-256: ${sha}. Now FULLY CLOSE Safari, then reopen this identical HTTPS URL and run B.`);
+}catch(e){log($('save-result'),false,stringifyError(e)+'. If this was a photo decoding error, record it and use the app\'s Add photo later fallback. Existing records will not be automatically deleted.');}finally{$('save').disabled=!selectedFile}});
+$('verify').addEventListener('click',async()=>{try{
+ if(location.protocol!=='https:'||!isSecureContext)throw Error('Not running on the HTTPS test site.');
+ const raw=localStorage.getItem(key);if(!raw)throw Error('Test metadata missing. You may have changed site URL or browser context, or cleared site data.');
+ const m=JSON.parse(raw),actual=await getProfile(),meds=await listMedications();
+ for(const field of Object.keys(m.profile)){if(actual[field]!==m.profile[field])throw Error(`Profile mismatch: ${field}`)}
+ const med=meds.find(x=>x.id===m.medicationId);if(!med)throw Error('Medication missing after restart.');
+ for(const field of ['displayNumber','startedAt','photoId']){if(med[field]!==m[field])throw Error(`Medication ${field} changed or missing.`)}
+ if(med.name!==''||med.status!=='ongoing')throw Error('Unnamed or ongoing medication state changed.');
+ const blob=await getPhotoBlob(m.photoId);if(!(blob instanceof Blob)||!blob.size)throw Error('IndexedDB photo missing after restart.');
+ const sha=await digest(blob);if(sha!==m.sha||blob.size!==m.size)throw Error('Photo bytes are different after reopening.');
+ photoPreview($('persisted-photo'),blob);
+ const records=localStorage.getItem('caretrail.records.v1')||'';
+ if(records.includes('data:image/')||records.includes('base64,'))throw Error('Image data appears in localStorage.');
+ log($('verify-result'),true,`Profile fields, ongoing unnamed medication, stable ID/display number/start date, photo ID and exact photo bytes all survived reopening. Stored image: ${blob.type}, ${blob.size} bytes. SHA-256 matches. Visually check the image below; it must remain readable. Camera selection itself is confirmed by the person who chose Take Photo.`);
+}catch(e){log($('verify-result'),false,stringifyError(e))}});
+</script>
+</body>
+</html>
